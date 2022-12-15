@@ -193,7 +193,7 @@ def temporal_firing_power_with_decay(y_pred,datetimes,sop,sph,window_seconds,thr
                 inside_refractory_time = False
     return firing_power_windows,filtered_y_pred
 
-'''Function to evaluate the model. The data do not contain the sph.'''
+'''Function to evaluate the model.'''
 def evaluate_model(y_pred,y_true,datetimes,sop,sph,seizure_onset_datetime):
     sop_time = pd.Timedelta(minutes=sop)
     sph_time = pd.Timedelta(minutes=sph)
@@ -261,51 +261,6 @@ def evaluate_model(y_pred,y_true,datetimes,sop,sph,seizure_onset_datetime):
             false_alarms += 1
     
     return true_alarms,false_alarms,possible_firing_time
-    
-def save_results(patient_number,filename,avg_ss,avg_fpr_h,sop,tested_seizures,ss_rand_pred,ss_surrogate,ss_surrogate_std,fpr_h_surrogate,last_epoch):
-    beat_rp = avg_ss>ss_rand_pred
-    if os.path.isfile(filename):
-        all_results = pd.read_csv(filename,index_col=0)
-        new_results_dictionary = {'Patient':[patient_number],'Sensitivity':[avg_ss],
-                                  'FPR/h':[avg_fpr_h],'SOP (Minutes)':[sop],'Last Epoch':[last_epoch],
-                                  'Tested Seizures':[tested_seizures],'Sensitivity (Random Prediction)':[ss_rand_pred],
-                                  'Sensitivity (Surrogate Analysis)':[ss_surrogate],'Sensitivity Std (Surrogate Analysis)':[ss_surrogate_std],
-                                  'FPR/h (Surrogate Analysis)':[fpr_h_surrogate],'Beat RP':[beat_rp]}
-        new_results = pd.DataFrame(new_results_dictionary)
-        
-        all_results = all_results.append(new_results, ignore_index = True)
-        all_results.to_csv(filename)
-    else:
-        new_results_dictionary = {'Patient':[patient_number],'Sensitivity':[avg_ss],
-                                  'FPR/h':[avg_fpr_h],'SOP (Minutes)':[sop],'Last Epoch':[last_epoch],
-                                  'Tested Seizures':[tested_seizures],'Sensitivity (Random Prediction)':[ss_rand_pred],
-                                  'Sensitivity (Surrogate Analysis)':[ss_surrogate],'Sensitivity Std (Surrogate Analysis)':[ss_surrogate_std],
-                                  'FPR/h (Surrogate Analysis)':[fpr_h_surrogate],'Beat RP':[beat_rp]}
-        new_results = pd.DataFrame(new_results_dictionary)
-        new_results.to_csv(filename)
-
-def save_results(patient_number,filename,avg_ss,avg_fpr_h,sop,tested_seizures,ss_rand_pred,avg_ss_surrogate,fpr_h_surrogate,last_epoch):
-    beat_rp = avg_ss>ss_rand_pred
-    
-    if os.path.isfile(filename):
-        all_results = pd.read_csv(filename,index_col=0)
-        new_results_dictionary = {'Patient':[patient_number],'Sensitivity':[avg_ss],
-                                  'FPR/h':[avg_fpr_h],'SOP (Minutes)':[sop],'Last Epoch':[last_epoch],
-                                  'Tested Seizures':[tested_seizures],'Sensitivity (Random Prediction)':[ss_rand_pred],
-                                  'Sensitivity (Surrogate Analysis)':[avg_ss_surrogate],'FPR/h (Surrogate Analysis)':[fpr_h_surrogate],
-                                  'Beat RP':[beat_rp]}
-        new_results = pd.DataFrame(new_results_dictionary)
-        
-        all_results = all_results.append(new_results, ignore_index = True)
-        all_results.to_csv(filename)
-    else:
-        new_results_dictionary = {'Patient':[patient_number],'Sensitivity':[avg_ss],
-                                  'FPR/h':[avg_fpr_h],'SOP (Minutes)':[sop],'Last Epoch':[last_epoch],
-                                  'Tested Seizures':[tested_seizures],'Sensitivity (Random Prediction)':[ss_rand_pred],
-                                  'Sensitivity (Surrogate Analysis)':[avg_ss_surrogate],'FPR/h (Surrogate Analysis)':[fpr_h_surrogate],
-                                  'Beat RP':[beat_rp]}
-        new_results = pd.DataFrame(new_results_dictionary)
-        new_results.to_csv(filename)
         
 def save_results_ensemble(patient_number,filename,avg_ss,avg_fpr_h,sop,tested_seizures,ss_rand_pred,all_ss_surrogate,fpr_h_surrogate,last_epoch):
     avg_ss_surrogate = np.mean(all_ss_surrogate)

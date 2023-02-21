@@ -623,8 +623,8 @@ def remove_sph(y_test,y_pred,seizure_datetimes,sph,seizure_onset_datetime):
 # Random State
 random_state = 42
 # Root Path
-root_path = "/mnt/6a3bf9e0-7462-43d9-b6ae-3aa1a8be2f6a/fabioacl/Fabio/Fabio_Task_3/Datasets/"
-# root_path = "/mnt/6a3bf9e0-7462-43d9-b6ae-3aa1a8be2f6a/fabioacl/Fabio/Fabio_Task_3/Not Processed Datasets/"
+root_path = "Datasets/"
+# root_path = "Not Processed Datasets/"
 # Seizure Occurrence (Minutes)
 sop_times = [30]*41
 # Seizure Prediction Horizon (Minutes)

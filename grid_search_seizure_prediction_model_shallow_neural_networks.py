@@ -497,7 +497,7 @@ def remove_sph(y_test,y_pred,seizure_datetimes,sph,seizure_onset_datetime):
     
     return y_test[used_indexes],y_pred[used_indexes],seizure_datetimes[used_indexes]
 
-def validate_architecture(dataset,datetimes,model_type,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_features=32):
+def validate_architecture(dataset,datetimes,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_features=32):
     
     num_seizures = len(dataset)
     print(f'Number of Seizures: {num_seizures}')
@@ -623,7 +623,7 @@ def validate_architecture(dataset,datetimes,model_type,seizure_onset_datetimes,t
         
     print("Save Results...")
     # Archive patient results
-    filename = f'results_architecture_search_sops_{model_type}_with_strides_{nr_features}.csv'
+    filename = f'results_architecture_search_sops_with_strides_{nr_features}.csv'
     if os.path.isfile(filename):
         all_results = pd.read_csv(filename,index_col=0)
         new_results_dictionary = {'Patient':[patient_number],'Sensitivity':[ss],
@@ -648,8 +648,8 @@ def validate_architecture(dataset,datetimes,model_type,seizure_onset_datetimes,t
 # Random State
 random_state = 42
 # Root Path
-root_path = "/mnt/6a3bf9e0-7462-43d9-b6ae-3aa1a8be2f6a/fabioacl/Fabio/Fabio_Task_3/Datasets/"
-# root_path = "/mnt/6a3bf9e0-7462-43d9-b6ae-3aa1a8be2f6a/fabioacl/Fabio/Fabio_Task_3/Not Processed Datasets/"
+root_path = "Datasets/"
+# root_path = "Not Processed Datasets/"
 # Seizure Occurrence (Minutes)
 sop_times = [30]*41
 # Seizure Prediction Horizon (Minutes)
@@ -689,8 +689,7 @@ for patient_index in [0,1,3,6,12,13,15,17,26,40]:
     # Select the best SOP
     sop = sop_times[patient_index]
     nr_features = 'No Reduction'  #8, 16, 32, 64, 128, 256, 512, No reduction
-    model_type = 'Only-Features'
-    validate_architecture(dataset,datetimes,model_type,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_features)
+    validate_architecture(dataset,datetimes,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_features)
     # Clear variables
     del dataset,datetimes,seizure_onset_datetimes
     gc.collect()

@@ -115,18 +115,6 @@ class MyCustomGenerator(keras.utils.Sequence):
 
 #%% Functions
 
-def recall(y_true,y_pred):
-    
-    true_positives = K.sum(K.round(K.clip(y_true*y_pred,0,1)))
-    possible_positives = K.sum(K.round(K.clip(y_true,0,1)))
-    return true_positives/(possible_positives + K.epsilon())
-
-def specificity(y_true,y_pred):
-    
-    true_negatives = K.sum(K.round(K.clip((1-y_true)*(1-y_pred),0,1)))
-    possible_negatives = K.sum(K.round(K.clip(1-y_true,0,1)))
-    return true_negatives/(possible_negatives + K.epsilon())
-
 def filtering_signals(data,fs,low_freq,high_freq,notch_freq,order):
     low_wn = low_freq/(0.5*fs)
     high_wn = high_freq/(0.5*fs)
@@ -138,178 +126,6 @@ def filtering_signals(data,fs,low_freq,high_freq,notch_freq,order):
     data = filtfilt(b,a,data,axis=1)
     
     return data
-
-''' Random Predictor and Surrogate Analysis code were developed by Mauro Pinto'''
-def f_RandPredictd(n_SzTotal, s_FPR, d, s_SOP, alpha):
-    # Random predictor with d free independent parameters
-
-    v_PBinom = np.zeros(n_SzTotal)
-    s_kmax = 0
-    
-    
-    # o +1, -1 tem a ver com no matlab a iteracao comeca em 1, aqui em 0 :)
-    for seizure_i in range(0,n_SzTotal):
-        v_Binom=comb(n_SzTotal,seizure_i+1)
-        s_PPoi=s_FPR*s_SOP
-        v_PBinom[seizure_i]=v_Binom*s_PPoi**(seizure_i+1)*((1-s_PPoi)**(n_SzTotal-seizure_i-1))
-        
-    v_SumSignif=1-(1-np.cumsum(np.flip(v_PBinom)))**d>alpha
-    s_kmax=np.count_nonzero(v_SumSignif)/n_SzTotal
-    
-    return s_kmax
-
-# code to shuffle the pre-seizure labels for the surrogate
-def shuffle_labels(surrogate_labels,datetimes,sop_datetime,sph_datetime,fp_threshold,seizure_onset_datetime):
-    
-    sample_freq = 256
-    
-    # Minimum surrogate controller
-    min_surrogate_controller = pd.Timedelta(seconds=0)
-    # Threshold to fire an alarm
-    threshold_fp_surrogate_controller = sop_datetime * fp_threshold
-    # Surrogate analysis could not start inside the truth preictal
-    end_alarms_datetime = seizure_onset_datetime - sop_datetime - sph_datetime
-    # The surrogate period cannot be longer than the normal SOP
-    max_surrogate_controller = sop_datetime
-    
-    surrogate_controller = pd.Timedelta(seconds=0)
-    possible_surrogate_indexes = []
-    
-    last_window_begin_datetime = pd.to_datetime(datetimes[0][0],unit='s')
-    last_window_end_datetime = pd.to_datetime(datetimes[0][-1],unit='s')
-    
-    # Datetime of each sample inside each windows
-    small_sample_step = pd.Timedelta(nanoseconds=1e+9/sample_freq)
-    
-    # The windows last the period between the begin and the end sample. The small_sample_step is just a correction
-    window_duration = last_window_end_datetime - last_window_begin_datetime + small_sample_step
-    
-    # Lets count the time length of the surrogate controller
-    surrogate_controller += window_duration
-    
-    num_windows = len(datetimes)
-    # This process is performed because we can only use the surrogate in the periods where the alarms
-    # can be fired. The surrogate can not be fired at the beginning and also cannot be fired after a 
-    # long gap because of the temporal decay.
-    for window_index in range(1,num_windows):
-        
-        current_window_begin_datetime = pd.to_datetime(datetimes[window_index][0],unit='s')
-        current_window_end_datetime = pd.to_datetime(datetimes[window_index][-1],unit='s')
-        
-        # If it is an overlapped window, we just correct the datetimes.
-        if current_window_begin_datetime < last_window_end_datetime:
-            current_window_begin_datetime = last_window_end_datetime
-        
-        diff_current_last_window = current_window_begin_datetime - last_window_end_datetime - small_sample_step
-        
-        surrogate_controller -= diff_current_last_window
-        
-        # The surrogate can never be negative.
-        if surrogate_controller < min_surrogate_controller:
-            surrogate_controller = min_surrogate_controller
-        
-        window_duration = current_window_end_datetime - current_window_begin_datetime + small_sample_step
-        
-        surrogate_controller += window_duration
-        
-        # The surrogate can never be longer than SOP.
-        if surrogate_controller > max_surrogate_controller:
-            surrogate_controller = max_surrogate_controller
-        
-        # If it is possible to fire alarm, we can also make the surrogate analysis.
-        if surrogate_controller >= threshold_fp_surrogate_controller and current_window_end_datetime < end_alarms_datetime:
-            possible_surrogate_indexes.append(window_index)
-        
-        last_window_begin_datetime = current_window_begin_datetime
-        last_window_end_datetime = current_window_end_datetime
-    
-    # Lets just take one random index and build the surrogate prediction.
-    sop_begin_index = random.sample(possible_surrogate_indexes,1)[0]
-    sop_begin_datetime = pd.to_datetime(datetimes[sop_begin_index][0],unit='s')
-    sop_end_datetime = sop_begin_datetime + sop_datetime
-    
-    surrogate_preictal_indexes = []
-    last_window_begin_datetime = pd.to_datetime(datetimes[sop_begin_index][0],unit='s')
-    # The second condition is used when there are some missing windows at the end of the list and the
-    # last_window_begin_datetime is still before the sop_end_datetime.
-    while last_window_begin_datetime < sop_end_datetime and sop_begin_index<num_windows:
-        surrogate_preictal_indexes.append(sop_begin_index)
-        last_window_begin_datetime = pd.to_datetime(datetimes[sop_begin_index][0],unit='s')
-        sop_begin_index += 1
-
-    surrogate_preictal_indexes = np.array(surrogate_preictal_indexes)
-    surrogate_labels[surrogate_preictal_indexes] = 1
-        
-    return surrogate_labels
-
-'''code that performs surrogate analysis and retrieves its sensitivity
-in other words, how many times it predicted the surrogate seizure
-in 30 chances'''
-def surrogateSensitivity(y_pred,y_true,datetimes,fp_threshold,sop,sph,seizure_onset_datetime):
-    
-    seizure_sensitivity = 0
-    seizure_fpr_h = 0
-    sph_datetime = pd.Timedelta(minutes=sph)
-    sop_datetime = pd.Timedelta(minutes=sop)
-    #lets do this 30 times
-    runs = 30
-    for run in range(runs):
-        surrogate_labels = np.zeros(y_pred.shape)
-        surrogate_labels = shuffle_labels(surrogate_labels, datetimes, sop_datetime, sph_datetime, fp_threshold, seizure_onset_datetime)
-        new_seizure_sensitivity,new_seizure_fpr_h = evaluate_model(y_pred, surrogate_labels, datetimes, sop, sph, seizure_onset_datetime)
-        seizure_sensitivity += new_seizure_sensitivity
-        seizure_fpr_h += new_seizure_fpr_h
-        
-    # Average Statistical Metrics    
-    avg_seizure_sensitivity = seizure_sensitivity/runs
-    avg_seizure_fpr_h = seizure_fpr_h/runs
-    
-    return avg_seizure_sensitivity,avg_seizure_fpr_h
-
-'''Channel Attention'''
-def channel_attention_2d(input_feature,hidden_channels,ratio):
-    
-    shared_layer_one = Dense(hidden_channels//ratio,activation='relu')
-    shared_layer_two = Dense(hidden_channels)
-    	
-    avg_pool = GlobalAveragePooling2D()(input_feature)    
-    avg_pool = Reshape((1,1,hidden_channels))(avg_pool)
-        
-    avg_pool = shared_layer_one(avg_pool)
-    avg_pool = shared_layer_two(avg_pool)
-    
-    max_pool = GlobalMaxPooling2D()(input_feature)
-    max_pool = Reshape((1,1,hidden_channels))(max_pool)
-        
-    max_pool = shared_layer_one(max_pool)
-    max_pool = shared_layer_two(max_pool)
-    	
-    cbam_feature = Add()([avg_pool,max_pool])
-    cbam_feature = Activation('sigmoid')(cbam_feature)
-    	
-    cbam_feature = multiply([input_feature, cbam_feature])
-    
-    return cbam_feature
-
-'''Spatial Attention'''
-def spatial_attention_2d(input_feature,kernel_size):
-    	
-    avg_pool = Lambda(lambda x: K.mean(x, axis=3, keepdims=True))(input_feature)
-    max_pool = Lambda(lambda x: K.max(x, axis=3, keepdims=True))(input_feature)
-    
-    concat = Concatenate(axis=3)([avg_pool, max_pool])
-    
-    cbam_feature = Conv2D(filters = 1,kernel_size=kernel_size,strides=1,padding='same',activation='sigmoid',use_bias=False)(concat)
-    
-    cbam_feature  = multiply([input_feature, cbam_feature])
-    
-    return cbam_feature
-
-'''Convolutional Block Attention Module'''
-def cbam_2d(input_feature,hidden_channels,ratio,kernel_size):
-    cbam_feature = channel_attention_2d(input_feature,hidden_channels,ratio)
-    cbam_feature = spatial_attention_2d(cbam_feature,kernel_size)
-    return cbam_feature
 
 def load_file(filepath):
     with open(filepath, "rb") as f:
@@ -403,9 +219,6 @@ def get_training_dataset(dataset,labels,datetimes,seizure_onset_datetimes,traini
     
     return training_dataset,training_labels,training_datetimes
 
-def balance_training_dataset(training_dataset,training_labels,training_datetimes):
-    return None
-
 def merge_seizure_datasets(dataset,labels):
     num_seizures = len(dataset)
     merged_dataset = dataset[0]
@@ -416,35 +229,6 @@ def merge_seizure_datasets(dataset,labels):
         merged_labels = np.concatenate((merged_labels,labels[seizure_index]))
     
     return merged_dataset,merged_labels
-
-def make_topographic_eegs(eeg_dataset):
-    for seizure_index,seizure_data in enumerate(eeg_dataset):
-        seizure_dataset_shape = np.shape(seizure_data)
-        num_windows = seizure_dataset_shape[0]
-        num_samples_window = seizure_dataset_shape[1]
-        channel_square_side = 5
-        topographic_data = np.zeros((num_windows,num_samples_window,channel_square_side,channel_square_side,1))
-        topographic_data[:,:,0,1,0] = seizure_data[:,:,0] #Fp1
-        topographic_data[:,:,0,3,0] = seizure_data[:,:,1] #Fp2
-        topographic_data[:,:,1,1,0] = seizure_data[:,:,2] #F3
-        topographic_data[:,:,1,3,0] = seizure_data[:,:,3] #F4
-        topographic_data[:,:,2,1,0] = seizure_data[:,:,4] #C3
-        topographic_data[:,:,2,3,0] = seizure_data[:,:,5] #C4
-        topographic_data[:,:,3,1,0] = seizure_data[:,:,6] #P3
-        topographic_data[:,:,3,3,0] = seizure_data[:,:,7] #P4
-        topographic_data[:,:,4,1,0] = seizure_data[:,:,8] #O1
-        topographic_data[:,:,4,3,0] = seizure_data[:,:,9] #O2
-        topographic_data[:,:,1,0,0] = seizure_data[:,:,10] #F7
-        topographic_data[:,:,1,4,0] = seizure_data[:,:,11] #F8
-        topographic_data[:,:,2,0,0] = seizure_data[:,:,12] #T7
-        topographic_data[:,:,2,4,0] = seizure_data[:,:,13] #T8
-        topographic_data[:,:,3,0,0] = seizure_data[:,:,14] #P7
-        topographic_data[:,:,3,4,0] = seizure_data[:,:,15] #P8
-        topographic_data[:,:,1,2,0] = seizure_data[:,:,16] #Fz
-        topographic_data[:,:,2,2,0] = seizure_data[:,:,17] #Cz
-        topographic_data[:,:,3,2,0] = seizure_data[:,:,18] #Pz
-        eeg_dataset[seizure_index] = topographic_data
-    return eeg_dataset
 
 ''' The temporal correction consists in introducing 0s in gaps. For each window gap, a 0 is introduced.
     For example, if a gap is longer than 10 seconds, a 0 is introduced in labels array; if a gap is longer than 20 seconds, 
@@ -627,7 +411,7 @@ def save_results(patient_number,filename,all_sensitivities,all_fpr_h,sop,tested_
         new_results = pd.DataFrame(new_results_dictionary)
         new_results.to_csv(filename)
 
-def prepare_dataset(patient_folder,dataset_type,data_dimension,fs,low_freq,high_freq,notch_freq,order):
+def prepare_dataset(patient_folder,data_dimension,fs,low_freq,high_freq,notch_freq,order):
     # Dataset Path
     dataset_path = patient_folder + "all_eeg_dataset.pkl"
     # Datetimes Path
@@ -639,17 +423,7 @@ def prepare_dataset(patient_folder,dataset_type,data_dimension,fs,low_freq,high_
     
     for index,seizure_data in enumerate(dataset):
         dataset[index] = filtering_signals(seizure_data,fs,low_freq,high_freq,notch_freq,order)
-    
-    if dataset_type=="eegs":
-        if data_dimension=='3D':
-            # Rearange signals in space according to the 10-20 EEG system
-            dataset = make_topographic_eegs(dataset)
-        elif data_dimension=='2D':
-            for index,_ in enumerate(dataset):
-                dataset[index] = np.expand_dims(dataset[index],axis=-1)
-    else:
-        for index,_ in enumerate(dataset):
-            dataset[index] = convert_to_spectrogram(dataset[index])
+        
     # Datetimes
     datetimes = load_file(datetimes_path)
     # Seizure Info
@@ -691,141 +465,33 @@ def remove_datasets_with_small_preictal(dataset,dataset_labels,datetimes,seizure
         new_seizure_onset_datetimes.append(seizure_onset_datetimes[used_seizure_index])
     
     return new_dataset,new_dataset_labels,new_datetimes,new_seizure_onset_datetimes
-
-def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
-    # Normalisation and Attention
-    x = LayerNormalization(epsilon=1e-6)(inputs)
-    x = MultiHeadAttention(num_heads=num_heads, key_dim=head_size, dropout=dropout)(x,x)
-    x = Dropout(dropout)(x)
-    res = x + inputs
-    
-    # Feed Forward Part
-    x = LayerNormalization(epsilon=1e-6)(res)
-    x = Conv1D(filters=ff_dim, kernel_size=1, activation='relu')(x)
-    x = Dropout(dropout)(x)
-    x = Conv1D(filters=inputs.shape[-1], kernel_size = 1)(x)
-    
-    return x + res
-    
-    
     
 ''' Get deep learning model architecture'''
-def get_model(dataset_type,model_type,nr_filters,filter_size,cbam_ratio=4,nr_features=32,lstm_units=128):
-    if dataset_type=='spectrograms':
-        input_layer = Input(shape=(129,19,19))
-        x = Conv2D(nr_filters,(filter_size,3),1,'same')(input_layer)
-        x = SpatialDropout2D(0.5)(x)
-        x = MaxPooling2D((2,2),padding='same')(x)
-        x = PReLU(shared_axes=[1,2,3])(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(nr_filters,(filter_size,3),1,'same')(x)
-        x = SpatialDropout2D(0.5)(x)
-        x = MaxPooling2D((2,2),padding='same')(x)
-        x = PReLU(shared_axes=[1,2,3])(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(nr_filters,(filter_size,3),1,'same')(x)
-        x = SpatialDropout2D(0.5)(x)
-        x = MaxPooling2D((2,2),padding='same')(x)
-        x = PReLU(shared_axes=[1,2,3])(x)
-        x = BatchNormalization()(x)
-        x = Flatten()(x)
-        x = Dropout(0.3)(x)
-        x = Dense(128)(x)
-        x = PReLU(shared_axes=1)(x)
-        x = Dense(2)(x)
-        output_layer = Activation('softmax')(x)
-    else:
-        if model_type=='3D-CNN-BiLSTM':
-            swish_function = tf.keras.activations.swish
-            input_layer = Input(shape=(2560,5,5,1))
-            x = Conv3D(nr_filters,(filter_size,3,3),(1,1,1),'same')(input_layer)
-            x = Conv3D(nr_filters,(filter_size,3,3),(2,1,1),'same')(x)
-            x = SpatialDropout3D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Conv3D(nr_filters*2,(filter_size,3,3),(1,1,1),'same')(x)
-            x = Conv3D(nr_filters*2,(filter_size,3,3),(2,1,1),'same')(x)
-            x = SpatialDropout3D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Conv3D(nr_filters*4,(filter_size,3,3),(1,1,1),'same')(x)
-            x = Conv3D(nr_filters*4,(filter_size,3,3),(2,1,1),'same')(x)
-            x = SpatialDropout3D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Reshape((320,5*5*nr_filters*4))(x)
-            x = Bidirectional(LSTM(lstm_units,return_sequences=False))(x)
-            x = Dropout(0.5)(x)
-            x = Dense(2)(x)
-            output_layer = Activation('softmax')(x)
-        elif model_type=='2D-CNN-BiLSTM':
-            swish_function = tf.keras.activations.swish
-            input_layer = Input(shape=(2560,19,1))
-            x = Conv2D(nr_filters,(filter_size,3),(1,1),'same')(input_layer)
-            x = Conv2D(nr_filters,(filter_size,3),(2,2),'same')(x)
-            x = SpatialDropout2D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Conv2D(nr_filters*2,(filter_size,3),(1,1),'same')(x)
-            x = Conv2D(nr_filters*2,(filter_size,3),(2,2),'same')(x)
-            x = SpatialDropout2D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Conv2D(nr_filters*4,(filter_size,3),(1,1),'same')(x)
-            x = Conv2D(nr_filters*4,(filter_size,3),(2,2),'same')(x)
-            x = SpatialDropout2D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Reshape((320,3*nr_filters*4))(x)
-            x = Bidirectional(LSTM(lstm_units,return_sequences=False))(x)
-            x = Dropout(0.5)(x)
-            x = Dense(2)(x)
-            output_layer = Activation('softmax')(x)
-        elif model_type=='1D-CNN-BiLSTM':
-            swish_function = tf.keras.activations.swish
-            input_layer = Input(shape=(2560,19))
-            x = Conv1D(nr_filters,filter_size,1,'same')(input_layer)
-            x = Conv1D(nr_filters,filter_size,2,'same')(x)
-            x = SpatialDropout1D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Conv1D(nr_filters*2,filter_size,1,'same')(x)
-            x = Conv1D(nr_filters*2,filter_size,2,'same')(x)
-            x = SpatialDropout1D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Conv1D(nr_filters*4,filter_size,1,'same')(x)
-            x = Conv1D(nr_filters*4,filter_size,2,'same')(x)
-            x = SpatialDropout1D(0.5)(x)
-            x = Activation(swish_function)(x)
-            x = BatchNormalization()(x)
-            
-            x = Bidirectional(LSTM(lstm_units,return_sequences=False))(x)
-            x = Dropout(0.5)(x)
-            x = Dense(2)(x)
-            output_layer = Activation('softmax')(x)
-        elif model_type=='Transformer':
-            input_layer = Input(shape=(2560,19))
-            x = input_layer
-            for _ in range(4):
-                x = transformer_encoder(x,256,4,32,0.25)
-            
-            x = GlobalAveragePooling1D(data_format='channels_first')(x)
-            
-            mlp_units = [128]
-            for dim in mlp_units:
-                x = Dense(dim, activation='relu')(x)
-                x = Dropout(0.4)(x)
-            
-            output_layer = Dense(2, activation='softmax')(x)
+def get_model(nr_filters,filter_size,lstm_units=128):
+    swish_function = tf.keras.activations.swish
+    input_layer = Input(shape=(2560,19))
+    x = Conv1D(nr_filters,filter_size,1,'same')(input_layer)
+    x = Conv1D(nr_filters,filter_size,2,'same')(x)
+    x = SpatialDropout1D(0.5)(x)
+    x = Activation(swish_function)(x)
+    x = BatchNormalization()(x)
+
+    x = Conv1D(nr_filters*2,filter_size,1,'same')(x)
+    x = Conv1D(nr_filters*2,filter_size,2,'same')(x)
+    x = SpatialDropout1D(0.5)(x)
+    x = Activation(swish_function)(x)
+    x = BatchNormalization()(x)
+
+    x = Conv1D(nr_filters*4,filter_size,1,'same')(x)
+    x = Conv1D(nr_filters*4,filter_size,2,'same')(x)
+    x = SpatialDropout1D(0.5)(x)
+    x = Activation(swish_function)(x)
+    x = BatchNormalization()(x)
+
+    x = Bidirectional(LSTM(lstm_units,return_sequences=False))(x)
+    x = Dropout(0.5)(x)
+    x = Dense(2)(x)
+    output_layer = Activation('softmax')(x)
                 
     
     model = Model(input_layer,output_layer)
@@ -854,25 +520,7 @@ def remove_sph(y_test,y_pred,seizure_datetimes,sph,seizure_onset_datetime):
     
     return y_test[used_indexes],y_pred[used_indexes],seizure_datetimes[used_indexes]
 
-def normalise_by_sample(dataset):
-    for index,sample in enumerate(dataset):
-        new_sample = []
-        for ts_index,timestep in enumerate(sample):
-            min_value = np.min(timestep)
-            max_value = np.max(timestep)
-            timestep = (timestep-min_value)/(max_value-min_value)
-            new_sample.append(timestep)
-        new_sample = np.array(new_sample)
-        dataset[index] = new_sample
-    dataset[:,:,0,0,:] = -1
-    dataset[:,:,0,2,:] = -1
-    dataset[:,:,0,4,:] = -1
-    dataset[:,:,4,0,:] = -1
-    dataset[:,:,4,2,:] = -1
-    dataset[:,:,4,4,:] = -1
-    return dataset
-
-def validate_architecture(dataset,datetimes,dataset_type,model_type,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_filters,filter_size,lstm_units=128):
+def validate_architecture(dataset,datetimes,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_filters,filter_size,lstm_units=128):
     
     num_seizures = len(dataset)
     print(f'Number of Seizures: {num_seizures}')
@@ -919,10 +567,7 @@ def validate_architecture(dataset,datetimes,dataset_type,model_type,seizure_onse
     validation_batch_generator = MyCustomGenerator(X_val,y_val,norm_values,batch_size,'validation')
     
     # Construct deep neural network architecture
-    
-    strategy = tf.distribute.MirroredStrategy()
-    with strategy.scope():
-        model = get_model(dataset_type,model_type,nr_filters,filter_size,lstm_units=lstm_units)
+    model = get_model(nr_filters,filter_size,lstm_units=lstm_units)
         
     train_patience = 50
     
@@ -965,7 +610,7 @@ def validate_architecture(dataset,datetimes,dataset_type,model_type,seizure_onse
         
     print("Save Results...")
     # Archive patient results
-    filename = f'results_architecture_search_sops_{model_type}_with_strides_{nr_filters}_filters_{filter_size}_{lstm_units}.csv'
+    filename = f'results_architecture_search_sops_with_strides_{nr_filters}_filters_{filter_size}_{lstm_units}.csv'
     if os.path.isfile(filename):
         all_results = pd.read_csv(filename,index_col=0)
         new_results_dictionary = {'Patient':[patient_number],'Sensitivity':[ss],
@@ -984,45 +629,14 @@ def validate_architecture(dataset,datetimes,dataset_type,model_type,seizure_onse
         new_results.to_csv(filename)
     
     return None
-
-def undersampling_dataset(dataset,dataset_labels):
-    interictal_indexes = np.where(dataset_labels==0)[0]
-    preictal_indexes = np.where(dataset_labels==1)[0]
-    
-    nr_preictal_samples = len(preictal_indexes)
-    random_interictal_indexes = np.random.choice(interictal_indexes,size=nr_preictal_samples,replace=False)
-    
-    all_indexes = np.concatenate((random_interictal_indexes,preictal_indexes))
-    
-    return dataset[all_indexes],dataset_labels[all_indexes]
-
-def convert_to_spectrogram(dataset):
-    spectrogram_dataset = []
-    nr_channels = 19
-    for index,sample in enumerate(dataset):
-        new_sample = np.zeros((129,19,19))
-        for ch_index in range(nr_channels):
-            ch_sample = np.squeeze(sample[:,ch_index])
-            _,_,ch_spectrogram = signal.spectrogram(ch_sample,256,
-                                                    window='hamming',
-                                                    nperseg=256,
-                                                    noverlap=128,
-                                                    scaling='spectrum')
-            new_sample[:,:,ch_index] = ch_spectrogram
-        spectrogram_dataset.append(new_sample)
-    spectrogram_dataset = np.array(spectrogram_dataset)
-    
-    return spectrogram_dataset
         
 #%% Develop and Evaluate Seizure Prediction Model
 
 # Random State
 random_state = 42
-# Dataset Type
-dataset_type = "eegs"
 # Root Path
-root_path = "/mnt/6a3bf9e0-7462-43d9-b6ae-3aa1a8be2f6a/fabioacl/Fabio/Fabio_Task_3/Datasets/"
-# root_path = "/mnt/6a3bf9e0-7462-43d9-b6ae-3aa1a8be2f6a/fabioacl/Fabio/Fabio_Task_3/Not Processed Datasets/"
+root_path = "Datasets/"
+# root_path = "Not Processed Datasets/"
 # Seizure Occurrence (Minutes)
 sop_times = [30]*41
 # Seizure Prediction Horizon (Minutes)
@@ -1043,7 +657,7 @@ for i in range(0,3):
         patient_folder = root_path + "pat_" + str(patient_number) + "/"
         # Prepare Dataset
         data_dimension = '1D'
-        dataset,datetimes,seizure_onset_datetimes = prepare_dataset(patient_folder,dataset_type,data_dimension,256,100,0.5,50,4)
+        dataset,datetimes,seizure_onset_datetimes = prepare_dataset(patient_folder,data_dimension,256,100,0.5,50,4)
         
         
         #------------Select the most optimal SOP------------
@@ -1064,8 +678,7 @@ for i in range(0,3):
         nr_filters = 4 # Number filters of the first layer
         filter_size = 3 # First dimension filter size
         lstm_units = 32
-        model_type = '1D-CNN-BiLSTM'
-        validate_architecture(dataset,datetimes,dataset_type,model_type,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_filters,filter_size,lstm_units)
+        validate_architecture(dataset,datetimes,seizure_onset_datetimes,training_time,training_ratio,sop,sph,patient_number,batch_size,train_epochs,nr_filters,filter_size,lstm_units)
         # Clear variables
         del dataset,datetimes,seizure_onset_datetimes
         gc.collect()

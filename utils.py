@@ -2,7 +2,7 @@
 """
 Created on Mon Apr  3 10:41:44 2023
 
-@author: costaf
+@author: fabioacl
 """
 
 import os
@@ -38,7 +38,7 @@ def filtering_signals(data,fs,cutoff_freqs,filters_orders):
     """
     
     low_freq,high_freq,notch_freq = cutoff_freqs
-    low_order,high_order,notch_order = filters_orders
+    low_order,high_order = filters_orders
     low_wn = low_freq/(0.5*fs)
     high_wn = high_freq/(0.5*fs)
     b,a = butter(low_order,low_wn,'low')
@@ -381,7 +381,6 @@ def prepare_dataset(patient_folder,fs,cutoff_freqs,filters_orders):
     
     for index,seizure_data in enumerate(dataset):
         dataset[index] = filtering_signals(seizure_data,fs,cutoff_freqs,filters_orders)
-        dataset[index] = np.expand_dims(dataset[index],axis=-1)
         
     # Datetimes
     datetimes = load_file(datetimes_path)
@@ -465,7 +464,7 @@ def remove_datasets_with_small_preictal(dataset,dataset_labels,datetimes,seizure
         seizure_onset_datetime = seizure_onset_datetimes[seizure_index]
         fp_values,filtered_y_pred = temporal_firing_power(seizure_labels,seizure_datetimes,sop,sph,window_seconds,fp_threshold)
         # Get model evaluation
-        ss,fpr_h = evaluate_model(filtered_y_pred,seizure_labels,seizure_datetimes,sop,sph,seizure_onset_datetime)
+        ss,fpr_h,_ = evaluate_model(filtered_y_pred,seizure_labels,seizure_datetimes,sop,sph,seizure_onset_datetime)
         if ss==1 or num_training_seizures>seizure_index:
             used_seizure_indexes.append(seizure_index)
             

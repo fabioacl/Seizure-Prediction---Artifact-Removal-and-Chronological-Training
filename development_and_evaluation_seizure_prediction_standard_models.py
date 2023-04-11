@@ -47,6 +47,9 @@ all_patient_numbers = utils.get_all_patients_numbers(root_path)
 number_patients = len(all_patient_numbers)
 model_type = 'Base Model'
 
+if os.path.exists(f'{model_type}/')==False:
+    os.mkdir(f'{model_type}/')
+
 for patient_index in range(number_patients):
     
     patient_number = all_patient_numbers[patient_index]

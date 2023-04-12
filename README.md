@@ -1,6 +1,4 @@
 # Seizure Prediction - Artifact Removal and Chronological Training
-Python scripts used to develop the methodology proposed in "Removing artefacts and periodically retraining improve performance of neural network-based seizure prediction models".
-
 Scripts used to develop the methodology proposed in Removing artefacts and periodically retraining improve performance of neural network-based seizure prediction models
 
 In the case you use these scripts, cite the following manuscript:

@@ -39,7 +39,7 @@ class ComputeEEGFeatures():
                     window_channel_features.extend(hjorth_parameters_features)
                 if 'wavelet' in feature_groups:
                     wavelet_features = self.compute_wavelet_features(window_channel)
-                    window_channel_features.extend(hjorth_parameters_features)
+                    window_channel_features.extend(wavelet_features)
                 if 'decorrelation time' in feature_groups:
                     decorr_time_feature = self.compute_decorrelation_time_feature(window_channel)
                     window_channel_features.append(decorr_time_feature)

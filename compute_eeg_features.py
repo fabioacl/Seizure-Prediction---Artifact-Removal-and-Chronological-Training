@@ -150,7 +150,7 @@ class ComputeEEGFeatures():
         mobility = np.sqrt(variance_first_deriv_signal / variance_signal)
         complexity = np.sqrt(variance_second_deriv_signal / variance_first_deriv_signal) / mobility
     
-        return [activity, mobility, complexity]
+        return [mobility, complexity]
     
     '''Wavelet Features'''
     def compute_wavelet_features(self,signal,mother_wavelet='db4',level=5):

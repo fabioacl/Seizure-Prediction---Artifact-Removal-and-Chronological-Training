@@ -82,7 +82,7 @@ def get_shallow_model(nr_features,dropout_rate):
     """
     
     swish_function = tf.keras.activations.swish
-    features_input_layer = Input(shape=(1045,))
+    features_input_layer = Input(shape=(1083,))
     handcrafted_features = Dropout(dropout_rate)(features_input_layer)
     
     if nr_features!='No Reduction':

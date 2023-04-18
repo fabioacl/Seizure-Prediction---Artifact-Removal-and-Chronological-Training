@@ -510,8 +510,8 @@ def evaluate_model(y_pred,y_true,datetimes,sop,sph,seizure_onset_datetime):
     sop_time = pd.Timedelta(minutes=sop)
     sph_time = pd.Timedelta(minutes=sph)
     window_datetime_step = pd.Timedelta(nanoseconds=1e9/256)
-    last_datetime = seizure_onset_datetime - sph_time
-    begin_sop_datetime = last_datetime - sop_time
+    last_sop_datetime = seizure_onset_datetime - sph_time
+    begin_sop_datetime = last_sop_datetime - sop_time
     refractory_time = sop_time + sph_time
     inside_refractory_time = False
     inside_sop_time = False
@@ -549,8 +549,10 @@ def evaluate_model(y_pred,y_true,datetimes,sop,sph,seizure_onset_datetime):
         if current_window_end_datetime > finish_refractory_time_datetime:
             inside_refractory_time = False
         
-        if current_window_end_datetime > begin_sop_datetime:
+        if current_window_end_datetime >= begin_sop_datetime and current_window_end_datetime < last_sop_datetime:
             inside_sop_time = True
+        else:
+            inside_sop_time = False
         
         if inside_refractory_time == False and inside_sop_time==False:
             current_window_duration = (current_window_end_datetime - current_window_begin_datetime + window_datetime_step).seconds

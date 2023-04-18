@@ -722,7 +722,7 @@ def surrogate_sensitivity(y_pred,y_true,datetimes,window_seconds,fp_threshold,so
     runs = 30
     for run in range(runs):
         surrogate_labels = np.ones(y_pred.shape)
-        surrogate_labels,_ = temporal_firing_power(surrogate_labels, datetimes, sop, sph, window_seconds, fp_threshold)
+        _,surrogate_labels = temporal_firing_power(surrogate_labels, datetimes, sop, sph, window_seconds, fp_threshold)
         surrogate_labels,surrogate_seizure_onset_datetime = shuffle_labels(surrogate_labels, datetimes, sop_datetime, sph_datetime, fp_threshold, seizure_onset_datetime)
         new_seizure_true_alarms,new_seizure_false_alarms,new_seizure_possible_firing_time = evaluate_model(y_pred, surrogate_labels, datetimes, sop, sph, surrogate_seizure_onset_datetime)
         seizure_true_alarms.append(new_seizure_true_alarms)

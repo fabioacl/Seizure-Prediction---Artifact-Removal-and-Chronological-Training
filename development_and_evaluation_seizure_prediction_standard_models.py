@@ -217,7 +217,10 @@ for patient_index in range(number_patients):
             # Smooth labels using temporal firing power
             fp_values,filtered_y_pred = utils.temporal_firing_power(y_pred,seizure_datetimes,sop,sph,window_seconds,fp_threshold)
             # Get model evaluation
-            ss,fpr_h,_ = utils.evaluate_model(filtered_y_pred,y_test,seizure_datetimes,sop,sph,seizure_onset_datetime)
+            true_alarms,false_alarms,possible_firing_time = utils.evaluate_model(filtered_y_pred,y_test,seizure_datetimes,sop,sph,seizure_onset_datetime)
+            
+            ss = true_alarms
+            fpr/h = false_alarms/possible_firing_time
             
             # Save results in lists
             all_sensitivities.append(ss)

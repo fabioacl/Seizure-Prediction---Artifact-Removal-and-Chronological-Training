@@ -498,10 +498,10 @@ def evaluate_model(y_pred,y_true,datetimes,sop,sph,seizure_onset_datetime):
 
     Returns
     -------
-    sensitivity : float
-        Seizure sensitivity.
-    fpr_h : float
-        False prediction rate per hour.
+    true_alarms : int
+        True alarms.
+    false_alarms : int
+        False alarms.
     possible_firing_time : float
         Number of hours in which the model is able to fire an alarm.
 
@@ -569,11 +569,7 @@ def evaluate_model(y_pred,y_true,datetimes,sop,sph,seizure_onset_datetime):
         elif predicted_label!=true_label and predicted_label==1:
             false_alarms += 1
     
-    sensitivity = true_alarms
-    # FPR/h is computed over the time where is possible to fire alarms
-    fpr_h = false_alarms/possible_firing_time
-    
-    return sensitivity,fpr_h,possible_firing_time
+    return true_alarms,false_alarms,possible_firing_time
 
 ''' Random Predictor and Surrogate Analysis code were developed by Mauro Pinto'''
 def random_predictor(n_SzTotal, s_FPR, d, s_SOP, alpha):

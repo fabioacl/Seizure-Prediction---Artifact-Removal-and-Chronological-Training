@@ -17,7 +17,7 @@ physical_devices = tf.config.experimental.list_physical_devices('GPU')
 for i in range(len(physical_devices)):
     tf.config.experimental.set_memory_growth(physical_devices[i], True)
 
-from keras.utils import to_categorical
+from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import EarlyStopping,ModelCheckpoint
 
@@ -220,7 +220,7 @@ for patient_index in range(number_patients):
             true_alarms,false_alarms,possible_firing_time = utils.evaluate_model(filtered_y_pred,y_test,seizure_datetimes,sop,sph,seizure_onset_datetime)
             
             ss = true_alarms
-            fpr/h = false_alarms/possible_firing_time
+            fpr_h = false_alarms/possible_firing_time
             
             # Save results in lists
             all_sensitivities.append(ss)

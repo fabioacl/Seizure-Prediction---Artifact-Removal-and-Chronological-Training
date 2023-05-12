@@ -139,5 +139,6 @@ for patient_index in range(number_patients):
     if os.path.isdir(f'{root_path}/Results Seizure Prediction Fixed SOP/{model_type}/Results {model_type}{chronology_mode} Ensemble/')==False:
         os.mkdir(f'{root_path}/Results Seizure Prediction Fixed SOP/{model_type}/Results {model_type}{chronology_mode} Ensemble/')
     
-    utils.save_ensemble_results_dictionary(avg_ss, avg_fpr_h, all_fp_values, all_alarms, all_surrogate_sensitivities, all_surrogate_fpr_h, all_pred_labels, all_true_labels, all_datetimes, all_seizure_onset_datetimes, root_path, patient_number, model_type, chronology_mode, run_index)
+    save_filepath = 'Write here saving filepath'
+    utils.save_ensemble_results_dictionary(save_filepath,avg_ss, avg_fpr_h, all_fp_values, all_alarms, all_surrogate_sensitivities, all_surrogate_fpr_h, all_pred_labels, all_true_labels, all_datetimes, all_seizure_onset_datetimes, root_path, patient_number, model_type, chronology_mode, run_index)
     utils.save_results_ensemble_csv(patient_number,f'{root_path}/Results Seizure Prediction Fixed SOP/{model_type}/Results {model_type}{chronology_mode} Ensemble/results_{model_type}.csv',avg_ss,avg_fpr_h,sop,number_test_seizures,all_surrogate_sensitivities,all_surrogate_fpr_h,alpha_level)

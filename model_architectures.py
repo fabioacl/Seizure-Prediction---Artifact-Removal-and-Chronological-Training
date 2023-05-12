@@ -88,9 +88,9 @@ def get_shallow_model(nr_features,dropout_rate):
     if nr_features!='No Reduction':
         handcrafted_features = Dense(nr_features)(handcrafted_features)
         handcrafted_features = Activation(swish_function)(handcrafted_features)
-        x = Dropout(dropout_rate)(handcrafted_features)
+        handcrafted_features = Dropout(dropout_rate)(handcrafted_features)
     
-    x = Dense(2)(x)
+    x = Dense(2)(handcrafted_features)
     output_layer = Activation('softmax')(x)
         
     model = Model(features_input_layer,output_layer)

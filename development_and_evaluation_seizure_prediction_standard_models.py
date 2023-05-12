@@ -237,7 +237,8 @@ for patient_index in range(number_patients):
         
         print("Save Results...")
         # Archive patient results
-        utils.save_results_array(all_sensitivities,all_fpr_h,all_fp_values,all_alarms,
+        save_filepath = 'Write here the filepath to save arrays'
+        utils.save_results_array(save_filepath,all_sensitivities,all_fpr_h,all_fp_values,all_alarms,
                                  all_pred_labels,all_true_labels,all_datetimes,last_epoch,
                                  all_seizure_onset_datetimes,patient_number,model_type,run_index)
         

@@ -895,12 +895,14 @@ def save_results_ensemble_csv(patient_number,filename,avg_ss,avg_fpr_h,sop,teste
     
     return None
 
-def save_results_dictionary(all_sensitivities,all_fpr_h,all_fp_values,all_alarms,all_pred_labels,all_true_labels,all_datetimes,last_epoch,all_seizure_onset_datetimes,patient_number,model_type,run_index):
+def save_results_dictionary(filepath,all_sensitivities,all_fpr_h,all_fp_values,all_alarms,all_pred_labels,all_true_labels,all_datetimes,last_epoch,all_seizure_onset_datetimes,patient_number,model_type,run_index):
     """
     Save results in a dictionary object
 
     Parameters
     ----------
+    filepath : string
+        Filepath.
     all_sensitivities : list
         Seizure sensitivities.
     all_fpr_h : list
@@ -941,12 +943,12 @@ def save_results_dictionary(all_sensitivities,all_fpr_h,all_fp_values,all_alarms
                    'Last Epoch':last_epoch,
                    'Seizure Onset Datetimes':all_seizure_onset_datetimes}
         
-    with open(f'{model_type}/Patient {patient_number}/all_results_{patient_number}_{model_type}_{run_index}.pkl','wb') as file:
+    with open(filepath,'wb') as file:
         pickle.dump(all_results,file)
     
     return None
 
-def save_ensemble_results_dictionary(avg_ss,avg_fpr_h,all_fp_values,all_alarms,all_surrogate_sensitivities,
+def save_ensemble_results_dictionary(filepath,avg_ss,avg_fpr_h,all_fp_values,all_alarms,all_surrogate_sensitivities,
                                      all_surrogate_fpr_h,all_pred_labels,all_true_labels,all_datetimes,
                                      all_seizure_onset_datetimes,root_path,patient_number,model_type,chronology_mode,run_index):
     """
@@ -954,6 +956,8 @@ def save_ensemble_results_dictionary(avg_ss,avg_fpr_h,all_fp_values,all_alarms,a
     
     Parameters
     ----------
+    filepath : string
+        Filepath.
     avg_ss : float
         Average seizure sensitivity.
     all_fpr_h : float
@@ -1001,7 +1005,7 @@ def save_ensemble_results_dictionary(avg_ss,avg_fpr_h,all_fp_values,all_alarms,a
                     'Datetimes':all_datetimes,
                     'Seizure Onset Datetimes':all_seizure_onset_datetimes}
     
-    with open(f'{root_path}/Results Seizure Prediction Fixed SOP/{model_type}/All Results {model_type}{chronology_mode} Ensemble/Patient {patient_number}/all_results_{patient_number}_{model_type}.pkl','wb') as file:
+    with open(filepath,'wb') as file:
         pickle.dump(all_results,file)
     
     return None
